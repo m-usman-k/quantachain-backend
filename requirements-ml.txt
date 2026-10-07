@@ -1,0 +1,3 @@
+# Optional deep-learning stack for the LSTM forecaster (Module 5).
+# Without it the prediction engine falls back to the statistical ensemble.
+tensorflow>=2.16
