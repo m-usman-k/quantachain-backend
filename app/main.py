@@ -60,10 +60,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     await ws_hub.start(db, settings)
 
+    from app.modules.admin.controls import ModelControlService
+    from app.modules.admin.monitoring import SystemMonitor
+
+    await ModelControlService(db).ensure_known()
+    monitor = SystemMonitor(db, settings, role="api")
+    app.state.system_monitor = monitor
+    if not settings.is_test:
+        await monitor.start()
+
     logger.info("application_started", environment=settings.environment, version=settings.app_version)
     try:
         yield
     finally:
+        await monitor.stop()
         await ws_hub.stop()
         if runtime is not None:
             await runtime.stop()

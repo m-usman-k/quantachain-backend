@@ -11,10 +11,12 @@ extend-exclude = ["var", ".venv"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "ASYNC", "RUF"]
-ignore = ["B008", "RUF012", "B904", "RUF001", "RUF002", "RUF003", "RUF006", "ASYNC109", "ASYNC110", "ASYNC240"]
+# E501 is left to `ruff format` (long string literals in schemas/tool specs are intentional).
+ignore = ["E501", "B008", "RUF012", "B904", "RUF001", "RUF002", "RUF003", "RUF006", "ASYNC109", "ASYNC110", "ASYNC240"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["E501"]
+"scripts/*" = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

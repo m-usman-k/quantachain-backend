@@ -1,0 +1,67 @@
+name: quantachain
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MONGODB_URI: mongodb://mongo:27017
+      MONGODB_DB: quantachain
+      PUBLIC_BASE_URL: http://localhost:8000
+      RUN_WORKERS_IN_API: "false"
+    ports:
+      - "8000:8000"
+    volumes:
+      - app-data:/app/var
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  worker:
+    build: .
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MONGODB_URI: mongodb://mongo:27017
+      MONGODB_DB: quantachain
+      WORKERS_ENABLED: "true"
+    volumes:
+      - app-data:/app/var
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  mongo-express:
+    image: mongo-express:1
+    profiles: ["tools"]
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://mongo:27017
+      ME_CONFIG_BASICAUTH: "false"
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+volumes:
+  mongo-data:
+  app-data:
