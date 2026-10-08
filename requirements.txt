@@ -1,41 +1,41 @@
 # Web framework
-fastapi>=0.115
-uvicorn[standard]>=0.30
-python-multipart>=0.0.9
+fastapi>=0.142.2
+uvicorn[standard]>=0.54.0
+python-multipart>=0.0.32
 
 # Settings & validation
-pydantic>=2.7
-pydantic-settings>=2.4
-email-validator>=2.1
+pydantic>=2.13.5
+pydantic-settings>=2.15.0
+email-validator>=2.3.0
 
 # Database (PyMongo native asyncio client)
-pymongo>=4.18
+pymongo>=4.18.2
 
 # Security
-pyjwt>=2.8
-argon2-cffi>=23.1
-pyotp>=2.9
-cryptography>=42
+pyjwt>=2.15.1
+argon2-cffi>=25.1.0
+pyotp>=2.10.0
+cryptography>=50.0.2
 
 # HTTP / streaming / parsing
-httpx>=0.27
-websockets>=12
-feedparser>=6.0
+httpx>=0.28.1
+websockets>=17.2
+feedparser>=6.0.14
 
 # Observability
-structlog>=24.1
-psutil>=5.9
+structlog>=26.1.0
+psutil>=7.2.2
 
 # Analytics, ML (baseline) and reporting
-numpy>=1.26
-reportlab>=4.0
+numpy>=2.4.6
+reportlab>=5.0.1
 
 # Trading and AI providers
-ccxt>=4.3
-openai>=1.40
+ccxt>=4.5.85
+openai>=3.24.0
 
 # Email
-aiosmtplib>=3.0
+aiosmtplib>=5.1.3
 
 # Keccak-256 (EIP-55 checksums, Moralis webhook signatures)
-pycryptodome>=3.20
+pycryptodome>=3.24.0
