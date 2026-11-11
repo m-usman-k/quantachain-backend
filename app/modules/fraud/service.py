@@ -12,7 +12,7 @@ import structlog
 from app.core.config import Settings, get_settings
 from app.core.events import Topics, event_bus
 from app.core.exceptions import ValidationFailedError
-from app.core.timeutils import utcnow
+from app.core.timeutils import ensure_utc, utcnow
 from app.integrations.dexscreener import DexPair, DexScreenerClient
 from app.integrations.etherscan import EtherscanClient
 from app.integrations.evm import EvmRpcClient, is_address
@@ -253,6 +253,8 @@ class FraudService:
     async def compute_project_score(self, chain: str, address: str, symbol: str | None = None) -> ProjectScore:
         chain = chain.lower()
         address = address.lower()
+        if chain in ("ethereum", "eth", "bsc", "polygon", "arbitrum", "optimism", "base") and not is_address(address):
+            raise ValidationFailedError(f"Invalid {chain} contract address: {address}")
         components: list[ScoreComponent] = []
 
         # 1. DEX Liquidity Depth (25 max)
@@ -367,7 +369,7 @@ class FraudService:
         chain = chain.lower()
         address = address.lower()
         existing = await self.scores.get_for(chain, address)
-        if existing and (utcnow() - existing.computed_at).total_seconds() < 3600:
+        if existing and (utcnow() - ensure_utc(existing.computed_at)).total_seconds() < 3600:
             return existing
         return await self.compute_project_score(chain, address)
 
@@ -427,6 +429,8 @@ class FraudService:
     async def add_watched_pair(self, payload: WatchedPairIn, added_by: str | None = None) -> WatchedPair:
         chain = payload.chain.lower()
         pair_addr = payload.pair_address.lower()
+        if chain in ("ethereum", "eth", "bsc", "polygon", "arbitrum", "optimism", "base") and not is_address(pair_addr):
+            raise ValidationFailedError(f"Invalid {chain} pair address: {payload.pair_address}")
         data = payload.model_dump(exclude_unset=True)
         data.pop("chain", None)
         data.pop("pair_address", None)
@@ -561,6 +565,8 @@ class FraudService:
 
     async def add_to_blacklist(self, payload: BlacklistIn, actor: str | None = None) -> BlacklistEntry:
         addr = payload.address.lower()
+        if not is_address(addr):
+            raise ValidationFailedError(f"Invalid Ethereum address: {payload.address}")
         existing = await self.blacklist.get_by_address(addr)
         if existing:
             return (

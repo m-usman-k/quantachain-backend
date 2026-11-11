@@ -53,6 +53,13 @@ def is_address(value: str | None) -> bool:
     return value.startswith("0x") and len(value) == 42 and all(c in "0123456789abcdef" for c in value[2:])
 
 
+def is_tx_hash(value: str | None) -> bool:
+    if not value or not isinstance(value, str):
+        return False
+    val = value.lower()
+    return val.startswith("0x") and len(val) == 66 and all(c in "0123456789abcdef" for c in val[2:])
+
+
 def hex_to_int(value: str | int | None) -> int:
     if value is None:
         return 0
@@ -313,6 +320,7 @@ __all__ = [
     "decode_abi_string",
     "hex_to_int",
     "is_address",
+    "is_tx_hash",
     "keccak256",
     "to_checksum_address",
     "topic_to_address",

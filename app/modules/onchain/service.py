@@ -11,7 +11,7 @@ from app.core.config import Settings, get_settings
 from app.core.events import Topics, event_bus
 from app.core.exceptions import NotFoundError, UnauthorizedError, ValidationFailedError
 from app.core.timeutils import utcnow
-from app.integrations.evm import EvmRpcClient, is_address
+from app.integrations.evm import EvmRpcClient, is_address, is_tx_hash
 from app.integrations.moralis import MoralisClient
 from app.modules.fraud.models import BlacklistStatus
 from app.modules.fraud.repository import BlacklistRepository
@@ -94,6 +94,8 @@ class OnchainService:
         )
 
     async def get_transfers_by_tx(self, tx_hash: str) -> list[WhaleTransfer]:
+        if not is_tx_hash(tx_hash):
+            raise ValidationFailedError(f"Invalid transaction hash: {tx_hash}")
         return await self.transfers.get_by_tx_hash(tx_hash)
 
     async def classify_transfer(
@@ -311,6 +313,8 @@ class OnchainService:
     # ----------------------------------------------------------- transaction investigation (FR3.3)
     async def investigate(self, payload: InvestigationIn) -> InvestigationOut:
         if payload.tx_hash:
+            if not is_tx_hash(payload.tx_hash):
+                raise ValidationFailedError(f"Invalid transaction hash: {payload.tx_hash}")
             tx_hash = payload.tx_hash.lower()
             transfers = await self.transfers.get_by_tx_hash(tx_hash)
             if not transfers:
