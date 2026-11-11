@@ -291,6 +291,98 @@ class AuthService:
         await self.refresh_tokens.revoke_all_for_user(user.id or "")
         await self.record("password.changed", resource="user", actor=user)
 
+    async def request_password_reset(self, email: str) -> tuple[str, str | None]:
+        user = await self.users.get_by_email(email.lower())
+        generic_msg = "If this email is registered, recovery instructions have been sent."
+        if user is None or not user.is_active:
+            verify_password("dummy", None)
+            return generic_msg, None
+
+        recovery_token = create_token(
+            subject=user.id or "",
+            token_type="password_reset",
+            expires_in=timedelta(minutes=15),
+            settings=self.settings,
+            claims={"token_version": user.token_version, "email": user.email},
+        )
+        await self.record(
+            "password.recovery_requested",
+            resource="user",
+            actor=user,
+            metadata={"email": user.email},
+        )
+
+        from app.integrations.email import EmailClient
+
+        client = EmailClient(self.settings)
+        if client.configured:
+            reset_url = f"{self.settings.frontend_url.rstrip('/')}/auth/reset-password?token={recovery_token}"
+            await client.send(
+                to=[user.email],
+                subject="[QuantaChain] Password Reset Request",
+                text=(
+                    f"Hello {user.full_name or 'Trader'},\n\n"
+                    "A password reset was requested for your QuantaChain account.\n"
+                    f"Reset link (valid for 15 minutes): {reset_url}\n\n"
+                    "If you did not request this, please ignore this email."
+                ),
+            )
+
+        exposed_token = recovery_token if (self.settings.is_test or self.settings.debug) else None
+        return generic_msg, exposed_token
+
+    async def reset_password(self, token: str, new_password: str) -> None:
+        try:
+            payload = decode_token(token, "password_reset", settings=self.settings)
+        except TokenError:
+            raise UnauthorizedError("Invalid or expired password reset token") from None
+
+        user_id = payload.get("sub")
+        token_version = payload.get("token_version")
+        user = await self.users.get(user_id) if user_id else None
+        if user is None or not user.is_active:
+            raise UnauthorizedError("Invalid reset token or account deactivated")
+
+        if user.token_version != token_version:
+            await self.record(
+                "password.recovery_reused",
+                resource="user",
+                actor=user,
+                outcome=AuditOutcome.FAILURE,
+                metadata={"reason": "token_already_used_or_invalidated"},
+            )
+            raise UnauthorizedError("Password reset token has already been used or invalidated")
+
+        if len(new_password) < self.settings.password_min_length:
+            raise ValidationFailedError(f"Password must be at least {self.settings.password_min_length} characters")
+
+        await self.users.update(
+            user.id or "",
+            {"password_hash": hash_password(new_password)},
+            inc={"token_version": 1},
+        )
+        await self.refresh_tokens.revoke_all_for_user(user.id or "")
+        await self.record("password.recovery_completed", resource="user", actor=user)
+
+    async def delete_account(self, user: User, password: str | None = None) -> None:
+        if user.password_hash:
+            if not password or not verify_password(password, user.password_hash):
+                await self.record("user.deletion_failed", resource="user", actor=user, outcome=AuditOutcome.FAILURE)
+                raise UnauthorizedError("Invalid password. Password confirmation is required to delete account.")
+
+        await self.users.update(user.id or "", {"is_active": False}, inc={"token_version": 1})
+        await self.refresh_tokens.revoke_all_for_user(user.id or "")
+        await self.api_keys.revoke_all_for_user(user.id or "")
+
+        from app.db.collections import Collections
+
+        await self.db[Collections.ORDERS].update_many(
+            {"user_id": user.id, "status": "working"},
+            {"$set": {"status": "canceled", "canceled_at": utcnow()}},
+        )
+
+        await self.record("user.account_deleted", resource="user", actor=user)
+
     # --------------------------------------------------------------- MFA
     async def mfa_setup(self, user: User) -> MFASetupResponse:
         secret = generate_totp_secret()

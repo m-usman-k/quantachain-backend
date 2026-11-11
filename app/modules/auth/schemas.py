@@ -179,4 +179,30 @@ class AuditChainVerification(BaseModel):
     reason: str | None
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class PasswordResetRequest(BaseModel):
+    token: str = Field(min_length=10)
+    new_password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("new_password")
+    @classmethod
+    def _password_strength(cls, value: str) -> str:
+        if value.lower() == value or not any(ch.isdigit() for ch in value):
+            raise ValueError("Password must contain an uppercase letter and a digit")
+        return value
+
+
+class PasswordRecoveryOut(BaseModel):
+    message: str
+    recovery_token: str | None = Field(default=None, description="Included in development/test mode")
+
+
+class DeleteAccountRequest(BaseModel):
+    password: str | None = None
+    confirm: bool = True
+
+
 __all__ = [name for name in globals() if name[0].isupper()]

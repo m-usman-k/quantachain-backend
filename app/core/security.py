@@ -21,7 +21,7 @@ from cryptography.fernet import Fernet, InvalidToken
 
 from app.core.config import Settings, get_settings
 
-TokenType = Literal["access", "refresh", "mfa", "oauth_state", "report"]
+TokenType = Literal["access", "refresh", "mfa", "oauth_state", "report", "password_reset"]
 
 _password_hasher = PasswordHasher()
 

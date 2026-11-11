@@ -197,6 +197,12 @@ class ApiKeyRepository(Repository[ApiKey]):
     async def list_for_user(self, user_id: str) -> list[ApiKey]:
         return await self.find({"user_id": user_id}, sort=[("created_at", DESCENDING)])
 
+    async def revoke_all_for_user(self, user_id: str) -> int:
+        result = await self.col.update_many(
+            {"user_id": user_id, "revoked_at": None}, {"$set": {"revoked_at": utcnow()}}
+        )
+        return result.modified_count
+
 
 __all__ = [
     "GENESIS_HASH",

@@ -214,5 +214,69 @@ class ResearchService:
             generated_at=now,
         )
 
+    async def export_research(
+        self,
+        symbol: str,
+        *,
+        format_: str = "csv",
+        interval: str = "1h",
+        range_: str = "7d",
+    ) -> tuple[str, str, str]:
+        import csv
+        import io
+        import json
+
+        from app.core.timeutils import parse_range
+        from app.modules.market.repository import CandleRepository
+
+        sym = symbol.upper()
+        now = utcnow()
+        start = now - parse_range(range_)
+        candle_repo = CandleRepository(self.db)
+        candles = await candle_repo.range(sym, interval, start=start, end=now, limit=1000)
+        sorted_candles = sorted(candles, key=lambda c: c.open_time)
+
+        if format_ == "json":
+            payload = {
+                "asset": sym,
+                "interval": interval,
+                "range": range_,
+                "exported_at": now.isoformat(),
+                "candle_count": len(sorted_candles),
+                "candles": [
+                    {
+                        "open_time": c.open_time.isoformat(),
+                        "open": c.open,
+                        "high": c.high,
+                        "low": c.low,
+                        "close": c.close,
+                        "volume": c.volume,
+                        "trades": c.trades,
+                    }
+                    for c in sorted_candles
+                ],
+            }
+            return json.dumps(payload, indent=2), "application/json", f"{sym}-research-export.json"
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["# QuantaChain Research Snapshot Export (FR8.3)"])
+        writer.writerow([f"# Asset: {sym}, Interval: {interval}, Range: {range_}"])
+        writer.writerow([f"# Generated At: {now.isoformat()}"])
+        writer.writerow(["timestamp", "open", "high", "low", "close", "volume", "trades"])
+        for c in sorted_candles:
+            writer.writerow(
+                [
+                    c.open_time.isoformat(),
+                    c.open,
+                    c.high,
+                    c.low,
+                    c.close,
+                    c.volume,
+                    c.trades,
+                ]
+            )
+        return output.getvalue(), "text/csv", f"{sym}-research-export.csv"
+
 
 __all__ = ["ResearchService", "shared_llm"]

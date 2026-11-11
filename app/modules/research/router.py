@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
 
 from app.api.deps import DB, AdminUser, CurrentUser, SettingsDep
 from app.core.rate_limit import rate_limited
@@ -134,3 +134,22 @@ async def insights(
 @router.post("/insights/refresh", response_model=list[InsightOut], summary="Recompute insights now (admin)")
 async def refresh_insights(_: AdminUser, service: Service) -> list[InsightOut]:
     return await service.refresh_insights()
+
+
+# ------------------------------------------------------------------ export
+@router.get("/export/{symbol}", summary="Export research data snapshot as CSV or JSON (FR8.3, EV-12)")
+async def export_research(
+    symbol: str,
+    service: Service,
+    format: Annotated[str, Query(pattern="^(csv|json)$")] = "csv",
+    interval: Annotated[str, Query(pattern="^(1m|5m|15m|1h|4h|1d)$")] = "1h",
+    range: Annotated[str, Query(pattern=r"^\d+[hdw]$")] = "7d",
+) -> Response:
+    content, media_type, filename = await service.export_research(
+        symbol, format_=format, interval=interval, range_=range
+    )
+    return Response(
+        content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

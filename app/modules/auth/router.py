@@ -19,6 +19,8 @@ from app.modules.auth.schemas import (
     ApiKeyPublic,
     AuditLogPublic,
     AuthResponse,
+    DeleteAccountRequest,
+    ForgotPasswordRequest,
     LoginRequest,
     LogoutRequest,
     MFACodeRequest,
@@ -27,6 +29,8 @@ from app.modules.auth.schemas import (
     MFAVerifyRequest,
     OAuthStartResponse,
     PasswordChangeRequest,
+    PasswordRecoveryOut,
+    PasswordResetRequest,
     RecoveryCodesResponse,
     RefreshRequest,
     RegisterRequest,
@@ -107,9 +111,39 @@ async def update_me(payload: UserUpdateRequest, user: CurrentUser, service: Serv
     return UserPublic.from_user(updated)
 
 
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT, summary="Delete user account and revoke all sessions")
+async def delete_me(
+    user: CurrentUser,
+    service: Service,
+    payload: DeleteAccountRequest | None = None,
+) -> None:
+    await service.delete_account(user, password=payload.password if payload else None)
+
+
 @router.put("/password", status_code=status.HTTP_204_NO_CONTENT, summary="Change password (revokes other sessions)")
 async def change_password(payload: PasswordChangeRequest, user: CurrentUser, service: Service) -> None:
     await service.change_password(user, payload.current_password, payload.new_password)
+
+
+@router.post(
+    "/password/forgot",
+    response_model=PasswordRecoveryOut,
+    dependencies=[Depends(login_limiter)],
+    summary="Request a password recovery link",
+)
+async def forgot_password(payload: ForgotPasswordRequest, service: Service) -> PasswordRecoveryOut:
+    msg, token = await service.request_password_reset(payload.email)
+    return PasswordRecoveryOut(message=msg, recovery_token=token)
+
+
+@router.post(
+    "/password/reset",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(login_limiter)],
+    summary="Reset password using single-use expiring token (revokes all prior sessions)",
+)
+async def reset_password(payload: PasswordResetRequest, service: Service) -> None:
+    await service.reset_password(payload.token, payload.new_password)
 
 
 @router.get("/sessions", response_model=list[SessionPublic], summary="Active sessions (refresh tokens)")
