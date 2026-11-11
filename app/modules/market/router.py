@@ -18,9 +18,11 @@ from app.modules.market.schemas import (
     IngestionOverview,
     IngestionSourceOut,
     LogLine,
+    MarketDepthOut,
     MarketOverview,
     NewsOut,
     SocialOut,
+    TechnicalIndicatorsOut,
     Ticker,
     ToggleRequest,
 )
@@ -83,6 +85,29 @@ async def candles(
 ) -> CandleSeries:
     rows = await service.candle_series(symbol, interval, limit=limit, start=start, end=end)
     return CandleSeries(symbol=symbol.upper(), interval=interval, candles=rows, count=len(rows))
+
+
+@router.get(
+    "/assets/{symbol}/indicators",
+    response_model=TechnicalIndicatorsOut,
+    summary="Technical analysis indicators for an asset",
+)
+async def indicators(
+    symbol: str,
+    service: Service,
+    interval: Annotated[str, Query(pattern="^(1m|5m|15m|1h|4h|1d)$")] = "1h",
+    limit: Annotated[int, Query(ge=20, le=500)] = 100,
+) -> TechnicalIndicatorsOut:
+    return await service.compute_indicators(symbol, interval=interval, limit=limit)
+
+
+@router.get("/assets/{symbol}/depth", response_model=MarketDepthOut, summary="Public market order book depth")
+async def depth(
+    symbol: str,
+    service: Service,
+    limit: Annotated[int, Query(ge=5, le=100)] = 20,
+) -> MarketDepthOut:
+    return await service.market_depth(symbol, limit=limit)
 
 
 @router.get("/news", response_model=Page[NewsOut], summary="Aggregated news with sentiment analysis")

@@ -281,4 +281,53 @@ class ToggleRequest(BaseModel):
     enabled: bool
 
 
+class IndicatorValues(BaseModel):
+    close: float
+    sma_20: float | None = None
+    sma_50: float | None = None
+    sma_200: float | None = None
+    ema_12: float | None = None
+    ema_26: float | None = None
+    ema_50: float | None = None
+    rsi_14: float | None = None
+    macd_line: float | None = None
+    macd_signal: float | None = None
+    macd_hist: float | None = None
+    bollinger_upper: float | None = None
+    bollinger_middle: float | None = None
+    bollinger_lower: float | None = None
+    bollinger_pct_b: float | None = None
+    atr_14: float | None = None
+    volatility_24h_pct: float | None = None
+
+
+class TechnicalIndicatorsOut(BaseModel):
+    symbol: str
+    interval: str
+    candle_count: int
+    indicators: IndicatorValues
+    signal_summary: str = Field(description="'bullish', 'bearish', or 'neutral'")
+    reasons: list[str] = Field(default_factory=list)
+    as_of: datetime
+
+
+class MarketDepthLevel(BaseModel):
+    price: float
+    amount: float
+
+
+class MarketDepthOut(BaseModel):
+    symbol: str
+    pair: str
+    bids: list[MarketDepthLevel]
+    asks: list[MarketDepthLevel]
+    best_bid: float | None = None
+    best_ask: float | None = None
+    mid: float | None = None
+    spread: float | None = None
+    spread_pct: float | None = None
+    source: str = Field(default="live", description="'live' or 'synthetic'")
+    updated_at: datetime
+
+
 __all__ = [name for name in globals() if name[0].isupper()]

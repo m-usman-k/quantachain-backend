@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 
+import numpy as np
 from pymongo import DESCENDING
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -14,6 +15,7 @@ from app.core.pagination import PageParams
 from app.core.timeutils import SUPPORTED_INTERVALS, utcnow
 from app.db.collections import Collections
 from app.db.ingestion_logs import tail_ingestion_logs
+from app.integrations.binance import BinanceClient
 from app.integrations.coingecko import DEFAULT_COINGECKO_IDS
 from app.modules.market.models import Asset, AssetStats, IngestionSource, NewsArticle, SocialPost
 from app.modules.market.repository import (
@@ -30,16 +32,29 @@ from app.modules.market.schemas import (
     AssetDetail,
     AssetRow,
     CandleOut,
+    IndicatorValues,
     IngestionOverview,
     IngestionSourceOut,
     LogLine,
+    MarketDepthLevel,
+    MarketDepthOut,
     MarketOverview,
     MarketPulse,
     SentimentBadge,
+    TechnicalIndicatorsOut,
     Ticker,
 )
 from app.modules.market.seed import ASSET_NAMES
 from app.modules.market.symbols import SymbolDetector
+from app.modules.prediction.features import (
+    atr,
+    bollinger_pct_b,
+    ema,
+    log_returns,
+    rolling_mean,
+    rolling_std,
+    rsi,
+)
 
 TABS = {"hot", "gainers", "losers", "volume", "new", "market_cap"}
 STALE_HEARTBEAT = timedelta(seconds=75)
@@ -194,6 +209,191 @@ class MarketService:
             raise ValidationFailedError(f"Unsupported interval '{interval}'. Use one of {list(SUPPORTED_INTERVALS)}")
         candles = await self.candles.range(symbol, interval, start=start, end=end, limit=limit)
         return [CandleOut.from_candle(c) for c in candles]
+
+    async def compute_indicators(
+        self, symbol: str, interval: str = "1h", *, limit: int = 100
+    ) -> TechnicalIndicatorsOut:
+        if interval not in SUPPORTED_INTERVALS:
+            raise ValidationFailedError(f"Unsupported interval '{interval}'. Use one of {list(SUPPORTED_INTERVALS)}")
+        candles = await self.candles.range(symbol, interval, limit=max(limit, 50))
+        if not candles:
+            raise NotFoundError(f"No candles found for asset {symbol.upper()}")
+
+        sorted_candles = sorted(candles, key=lambda c: c.open_time)
+        closes = np.array([c.close for c in sorted_candles], dtype=float)
+        highs = np.array([c.high for c in sorted_candles], dtype=float)
+        lows = np.array([c.low for c in sorted_candles], dtype=float)
+        n = closes.size
+        last_close = float(closes[-1])
+
+        sma20_arr = rolling_mean(closes, 20) if n >= 20 else np.full(n, np.nan)
+        sma50_arr = rolling_mean(closes, 50) if n >= 50 else np.full(n, np.nan)
+        sma200_arr = rolling_mean(closes, 200) if n >= 200 else np.full(n, np.nan)
+
+        ema12_arr = ema(closes, 12) if n >= 12 else np.full(n, np.nan)
+        ema26_arr = ema(closes, 26) if n >= 26 else np.full(n, np.nan)
+        ema50_arr = ema(closes, 50) if n >= 50 else np.full(n, np.nan)
+
+        rsi_arr = rsi(closes, 14) if n > 14 else np.full(n, np.nan)
+
+        if n >= 26:
+            macd_line_arr = ema12_arr - ema26_arr
+            macd_sig_arr = ema(macd_line_arr, 9)
+            macd_hist_arr = macd_line_arr - macd_sig_arr
+        else:
+            macd_line_arr = np.full(n, np.nan)
+            macd_sig_arr = np.full(n, np.nan)
+            macd_hist_arr = np.full(n, np.nan)
+
+        if n >= 20:
+            sd20 = rolling_std(closes, 20)
+            bb_mid = sma20_arr[-1]
+            bb_upper = bb_mid + 2.0 * sd20[-1] if not np.isnan(sd20[-1]) else None
+            bb_lower = bb_mid - 2.0 * sd20[-1] if not np.isnan(sd20[-1]) else None
+            pct_b_arr = bollinger_pct_b(closes, 20)
+            bb_pct_b_val = float(pct_b_arr[-1]) if not np.isnan(pct_b_arr[-1]) else None
+        else:
+            bb_mid = None
+            bb_upper = None
+            bb_lower = None
+            bb_pct_b_val = None
+
+        atr_arr = atr(highs, lows, closes, 14) if n > 14 else np.full(n, np.nan)
+
+        rets = log_returns(closes)
+        valid_rets = rets[~np.isnan(rets)]
+        if valid_rets.size >= 12:
+            vol_24h = float(np.std(valid_rets[-24:], ddof=1) * np.sqrt(24) * 100)
+        else:
+            vol_24h = None
+
+        def _val(arr: np.ndarray) -> float | None:
+            v = arr[-1] if arr.size > 0 else np.nan
+            return round(float(v), 4) if not np.isnan(v) else None
+
+        sma_20_val = _val(sma20_arr)
+        sma_50_val = _val(sma50_arr)
+        sma_200_val = _val(sma200_arr)
+        ema_12_val = _val(ema12_arr)
+        ema_26_val = _val(ema26_arr)
+        ema_50_val = _val(ema50_arr)
+        rsi_14_val = _val(rsi_arr)
+        macd_line_val = _val(macd_line_arr)
+        macd_sig_val = _val(macd_sig_arr)
+        macd_hist_val = _val(macd_hist_arr)
+        atr_14_val = _val(atr_arr)
+
+        bullish_score = 0.0
+        bearish_score = 0.0
+        reasons: list[str] = []
+
+        if rsi_14_val is not None:
+            if rsi_14_val > 70:
+                reasons.append(f"RSI(14) is overbought at {rsi_14_val:.1f}")
+                bearish_score += 1.0
+            elif rsi_14_val < 30:
+                reasons.append(f"RSI(14) is oversold at {rsi_14_val:.1f}")
+                bullish_score += 1.0
+            elif rsi_14_val >= 50:
+                reasons.append(f"RSI(14) is in positive territory at {rsi_14_val:.1f}")
+                bullish_score += 0.5
+            else:
+                reasons.append(f"RSI(14) is below midline at {rsi_14_val:.1f}")
+                bearish_score += 0.5
+
+        if macd_hist_val is not None:
+            if macd_hist_val > 0:
+                reasons.append("MACD momentum is positive")
+                bullish_score += 1.0
+            else:
+                reasons.append("MACD momentum is negative")
+                bearish_score += 1.0
+
+        if sma_50_val is not None:
+            if last_close > sma_50_val:
+                reasons.append(f"Price (${last_close:,.2f}) trades above 50-period SMA (${sma_50_val:,.2f})")
+                bullish_score += 1.0
+            else:
+                reasons.append(f"Price (${last_close:,.2f}) trades below 50-period SMA (${sma_50_val:,.2f})")
+                bearish_score += 1.0
+
+        if bullish_score >= 2.0 and bullish_score > bearish_score:
+            summary = "bullish"
+        elif bearish_score >= 2.0 and bearish_score > bullish_score:
+            summary = "bearish"
+        else:
+            summary = "neutral"
+
+        indicators = IndicatorValues(
+            close=last_close,
+            sma_20=sma_20_val,
+            sma_50=sma_50_val,
+            sma_200=sma_200_val,
+            ema_12=ema_12_val,
+            ema_26=ema_26_val,
+            ema_50=ema_50_val,
+            rsi_14=rsi_14_val,
+            macd_line=macd_line_val,
+            macd_signal=macd_sig_val,
+            macd_hist=macd_hist_val,
+            bollinger_upper=round(bb_upper, 4) if bb_upper is not None else None,
+            bollinger_middle=round(bb_mid, 4) if bb_mid is not None else None,
+            bollinger_lower=round(bb_lower, 4) if bb_lower is not None else None,
+            bollinger_pct_b=round(bb_pct_b_val, 4) if bb_pct_b_val is not None else None,
+            atr_14=atr_14_val,
+            volatility_24h_pct=round(vol_24h, 2) if vol_24h is not None else None,
+        )
+
+        return TechnicalIndicatorsOut(
+            symbol=symbol.upper(),
+            interval=interval,
+            candle_count=n,
+            indicators=indicators,
+            signal_summary=summary,
+            reasons=reasons,
+            as_of=sorted_candles[-1].open_time,
+        )
+
+    async def market_depth(self, symbol: str, *, limit: int = 20) -> MarketDepthOut:
+        sym = symbol.upper()
+        bids: list[MarketDepthLevel] = []
+        asks: list[MarketDepthLevel] = []
+        source = "live"
+        try:
+            async with BinanceClient(self.settings) as client:
+                book = await client.fetch_order_book(sym, limit=limit)
+            bids = [MarketDepthLevel(price=b[0], amount=b[1]) for b in book["bids"]]
+            asks = [MarketDepthLevel(price=a[0], amount=a[1]) for a in book["asks"]]
+        except Exception:
+            source = "synthetic"
+            price = await self.latest_price(sym) or 50000.0
+            for i in range(1, limit + 1):
+                spread_step = 0.0005 * i
+                bid_p = round(price * (1.0 - spread_step), 2)
+                ask_p = round(price * (1.0 + spread_step), 2)
+                amt = round(0.5 * (1 + 0.1 * i), 4)
+                bids.append(MarketDepthLevel(price=bid_p, amount=amt))
+                asks.append(MarketDepthLevel(price=ask_p, amount=amt))
+
+        best_bid = bids[0].price if bids else None
+        best_ask = asks[0].price if asks else None
+        mid = (best_bid + best_ask) / 2 if best_bid is not None and best_ask is not None else None
+        spread = (best_ask - best_bid) if best_bid is not None and best_ask is not None else None
+        spread_pct = round(spread / mid * 100, 6) if spread is not None and mid else None
+
+        return MarketDepthOut(
+            symbol=sym,
+            pair=f"{sym}/{self.settings.quote_asset}",
+            bids=bids,
+            asks=asks,
+            best_bid=best_bid,
+            best_ask=best_ask,
+            mid=round(mid, 8) if mid is not None else None,
+            spread=round(spread, 8) if spread is not None else None,
+            spread_pct=spread_pct,
+            source=source,
+            updated_at=utcnow(),
+        )
 
     # ------------------------------------------------------------- content
     async def list_news(

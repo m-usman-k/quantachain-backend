@@ -127,7 +127,14 @@ async def _pump(
         while True:
             if receiver.done():
                 break
-            event = await subscription.get(timeout=HEARTBEAT_SECONDS)
+            get_task = asyncio.create_task(subscription.get(timeout=HEARTBEAT_SECONDS))
+            done, _ = await asyncio.wait({receiver, get_task}, return_when=asyncio.FIRST_COMPLETED)
+            if receiver in done:
+                get_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await get_task
+                break
+            event = get_task.result()
             if event is None:
                 await _send(websocket, {"type": "ping", "dropped": subscription.dropped})
                 continue

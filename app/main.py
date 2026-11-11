@@ -120,6 +120,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     register_exception_handlers(app)
+    from app.api.health import router as health_router
+
+    app.include_router(health_router)
     app.include_router(api_router, prefix=settings.api_v1_prefix)
 
     from app.api.ws import router as ws_router
