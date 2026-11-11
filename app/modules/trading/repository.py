@@ -88,6 +88,8 @@ class OrderRepository(Repository[Order]):
             {"$set": update},
             return_document=ReturnDocument.AFTER,
         )
+        if raw is None:
+            raise RuntimeError("Reset balance returned no document")
         return self._parse(raw) if raw else None
 
     async def active_user_ids(self, *, mode: TradeMode, since: datetime) -> set[str]:
@@ -261,6 +263,8 @@ class PaperAccountRepository(Repository[PaperAccount]):
             upsert=True,
             return_document=ReturnDocument.AFTER,
         )
+        if raw is None:
+            raise RuntimeError("Reset balance returned no document")
         return self._parse(raw)
 
     async def raise_high_water(self, user_id: str, equity: float) -> None:

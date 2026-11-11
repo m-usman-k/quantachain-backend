@@ -265,7 +265,7 @@ class FraudService:
             pass
 
         best_pair = max(pairs, key=lambda p: p.liquidity_usd or 0.0) if pairs else None
-        liq_usd = best_pair.liquidity_usd if best_pair else 0.0
+        liq_usd = (best_pair.liquidity_usd or 0.0) if best_pair else 0.0
         if liq_usd >= 100_000:
             liq_score = 25.0
             liq_detail = f"High liquidity: ${liq_usd:,.0f}"

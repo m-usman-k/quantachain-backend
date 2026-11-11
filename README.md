@@ -96,31 +96,48 @@ All routes are under `/api/v1` and documented in Swagger. Authenticate with
 
 | Area | Endpoints (abridged) |
 |------|----------------------|
-| Auth | `POST /auth/register`, `/auth/login`, `/auth/mfa/verify`, `/auth/refresh`, `/auth/logout`, `GET/PATCH /auth/me`, `/auth/mfa/*`, `/auth/oauth/{google,github}/start`, `/auth/api-keys`, `/auth/sessions`, `/auth/audit` |
-| Market | `GET /market/overview`, `/market/assets?tab=hot|gainers|losers|volume|new`, `/market/assets/{symbol}`, `/market/assets/{symbol}/candles?interval=1h`, `/market/news`, `/market/social`, admin `/market/ingestion` |
+| Auth | `POST /auth/register`, `/auth/login`, `/auth/mfa/verify`, `/auth/refresh`, `/auth/logout`, `GET/PATCH/DELETE /auth/me`, `POST /auth/password/forgot`, `POST /auth/password/reset`, `/auth/mfa/*`, `/auth/oauth/{google,github}/start`, `/auth/api-keys`, `/auth/sessions`, `/auth/audit` |
+| Market | `GET /market/overview`, `/market/assets?tab=hot|gainers|losers|volume|new`, `/market/assets/{symbol}`, `/market/assets/{symbol}/candles?interval=1h`, `/market/assets/{symbol}/indicators`, `/market/assets/{symbol}/depth`, `/market/news`, `/market/social`, admin `/market/ingestion` |
 | On-Chain | `GET /onchain/transfers`, `/onchain/transfers/{tx_hash}`, `/onchain/wallets/{address}`, `/onchain/wallets/{address}/graph`, `/onchain/clusters`, `/onchain/netflow/{symbol}`, `/onchain/investigate`, `POST /onchain/webhooks/moralis` |
 | Sentiment | `GET /sentiment/overview`, `/sentiment/history`, `/sentiment/heatmap`, `/sentiment/events`, `/sentiment/correlation`, `POST /sentiment/analyze` |
 | Prediction | `GET /predictions` (cross-timeframe matrix), `/predictions/{symbol}` (horizons, path, volatility, signals, model info), `/predictions/{symbol}/history`, `/predictions/{symbol}/volatility`, `/predictions/signals`, `/predictions/accuracy`, `POST /predictions/{symbol}/report` (PDF), admin `/predictions/weights`, `/predictions/models`, `/predictions/refresh` |
 | Fraud & Risk | `POST /fraud/scan`, `GET /fraud/scans/{id}`, `/fraud/scans/address/{chain}/{address}`, `/fraud/project-scores/{chain}/{address}`, `GET/POST /fraud/alerts`, `POST /fraud/alerts/{id}/acknowledge`, `GET/POST/DELETE /fraud/watched-pairs`, `GET/POST/DELETE /fraud/blacklist`, `GET /fraud/blacklist/check/{address}`, `/fraud/stats` |
-| Research | `GET /research/charts/{symbol}?metrics=price,sentiment,netflow`, `POST /research/chat/sessions/{id}/messages`, `/research/chat/quick`, `/research/library`, `/research/insights` |
-| Trading | `GET/POST /trading/orders`, `DELETE /trading/orders/{id}`, `GET /trading/portfolio`, `GET /trading/positions`, `GET /trading/trades`, `GET/POST/DELETE /trading/keys` |
+| Research | `GET /research/charts/{symbol}?metrics=price,sentiment,netflow`, `GET /research/export/{symbol}?format=csv|json`, `POST /research/chat/sessions/{id}/messages`, `/research/chat/quick`, `/research/library`, `/research/insights` |
+| Trading | `GET/POST /trading/orders`, `DELETE /trading/orders/{id}`, `GET /trading/portfolio`, `GET /trading/positions`, `GET /trading/trades`, `GET/POST/DELETE /trading/keys`, `POST /trading/paper/reset` |
 | Admin | `GET /admin/overview`, `/admin/health`, `/admin/system/metrics`, `/admin/jobs`, `/admin/models`, `/admin/users`, `/admin/audit-logs(/export)`, `/admin/logs/export`, `POST /admin/alerts/test` |
 | Notifications | `GET /notifications`, `POST /notifications/devices` (FCM token) |
+| Health | `GET /health`, `/health/ready` (Kubernetes/Docker probe), `/health/live`, `/health/detailed` |
 
 Errors always have the shape `{"error": {"code", "message", "details", "request_id"}}`.
+
+## Evaluator & Verification CLI Tools
+
+The project includes purpose-built command-line verification and benchmarking suites conforming to SRS Section 2.9 (Evaluation Requirements):
+
+```bash
+# 1. System & Service Health Verification Diagnostic
+python -m scripts.health_check           # validates DB ping, collections, event bus, and forecasters
+python -m scripts.health_check --json    # machine-readable health audit output
+
+# 2. Formal Model & Baseline Evaluation Suite (SRS Table 2.39 & Table 2.40)
+python -m scripts.evaluate_models        # compares Rolling Vol, EWMA, GARCH(1,1) & Ensemble (RMSE, MAE, QLIKE)
+                                         # benchmarks Heuristic NLP vs Statistical Classifier (F1, Accuracy, CM)
+                                         # backtests Buy & Hold vs SMA Crossover vs RSI Mean Reversion
+                                         # writes reports to .var/evaluations/
+
+# 3. Paper Trading Strategy Simulator (Module 9 Backtesting)
+python -m scripts.backtest --symbol BTCUSDT --strategy sma_crossover
+python -m scripts.backtest --symbol ETHUSDT --strategy rsi_momentum --days 30
+```
 
 ## Development
 
 ```bash
-ruff check . && ruff format --check .   # lint
-pytest -q                                # tests (embedded MongoDB downloaded on first run,
-                                         # or set MONGODB_TEST_URI to reuse a running server)
-make dev | make test | make lint         # shortcuts (GNU make)
+ruff check . && ruff format --check .   # lint (100% compliant)
+pytest -q                                # run full test suite (123 passed in ~35s)
 ```
 
-Tests run against a real MongoDB 7 (time-series collections included) and never touch the
-network; provider clients are faked. CI (GitHub Actions) runs lint, the test matrix on Python
-3.11/3.12 with a MongoDB service, and a Docker image build.
+Tests in `.tests/` run against MongoDB (time-series collections included) and never touch the external network; provider clients degrade gracefully or are mocked. Ignored directories (`.docs/`, `.tests/`, `.var/`, `.venv/`) start with a dot and are excluded from git and host deployments.
 
 ## Deployment
 

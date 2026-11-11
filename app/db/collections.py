@@ -86,7 +86,7 @@ class TimeSeriesSpec:
     indexes: list[IndexModel] = field(default_factory=list)
 
 
-def _idx(*keys: tuple[str, int], unique: bool = False, name: str | None = None, **kwargs: Any) -> IndexModel:
+def _idx(*keys: tuple[str, int | str], unique: bool = False, name: str | None = None, **kwargs: Any) -> IndexModel:
     return IndexModel(list(keys), unique=unique, name=name, **kwargs)
 
 

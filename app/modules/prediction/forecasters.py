@@ -281,8 +281,9 @@ class LSTMForecaster:
         global _TF_AVAILABLE
         if _TF_AVAILABLE is None:
             try:
-                import tensorflow  # noqa: F401
+                import importlib
 
+                importlib.import_module("tensorflow")
                 _TF_AVAILABLE = True
             except Exception:  # pragma: no cover - depends on the environment
                 _TF_AVAILABLE = False

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any, ClassVar, Generic, TypeVar
 
 from pymongo import ReturnDocument
@@ -103,7 +103,7 @@ class Repository(Generic[D]):
         set_fields: dict[str, Any] | None = None,
         *,
         unset: Sequence[str] | None = None,
-        inc: dict[str, int | float] | None = None,
+        inc: Mapping[str, int | float] | None = None,
         push: dict[str, Any] | None = None,
         pull: dict[str, Any] | None = None,
         add_to_set: dict[str, Any] | None = None,
@@ -134,6 +134,8 @@ class Repository(Generic[D]):
         # Fields in $set must not also appear in $setOnInsert.
         update["$setOnInsert"] = {k: v for k, v in insert_defaults.items() if k not in update["$set"]}
         raw = await self.col.find_one_and_update(filter, update, upsert=True, return_document=ReturnDocument.AFTER)
+        if raw is None:
+            raise RuntimeError(f"Upsert failed to return document in {self.collection_name}")
         return self._parse(raw)
 
     async def replace(self, doc: D) -> D:
@@ -163,7 +165,7 @@ class Repository(Generic[D]):
         set_fields: dict[str, Any] | None,
         *,
         unset: Sequence[str] | None = None,
-        inc: dict[str, int | float] | None = None,
+        inc: Mapping[str, int | float] | None = None,
         push: dict[str, Any] | None = None,
         pull: dict[str, Any] | None = None,
         add_to_set: dict[str, Any] | None = None,

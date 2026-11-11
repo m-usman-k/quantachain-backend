@@ -47,7 +47,7 @@ async def stats(service: Service) -> FraudStatsOut:
     summary="Scan smart contract for security vulnerabilities",
 )
 async def scan_contract(payload: ScanIn, user: OptionalUser, service: Service) -> ScanOut:
-    user_id = user.id if user else "anonymous"
+    user_id = user.id if user and user.id else "anonymous"
     scan = await service.scan_contract(user_id, payload)
     return ScanOut(**scan.model_dump())
 

@@ -100,16 +100,23 @@ class DexScreenerClient(ProviderClient):
         settings = settings or get_settings()
         super().__init__("dexscreener", settings.dexscreener_api_url, timeout=20.0)
 
-    async def token_pairs(self, token_addresses: list[str]) -> list[DexPair]:
-        if not token_addresses:
+    async def token_pairs(self, token_addresses: list[str] | str, *extra: Any) -> list[DexPair]:
+        if isinstance(token_addresses, str):
+            addrs = [extra[0]] if extra and isinstance(extra[0], str) else [token_addresses]
+            addrs_list = addrs
+        else:
+            addrs_list = token_addresses
+        if not addrs_list:
             return []
-        payload = await self.get_json(f"/latest/dex/tokens/{','.join(token_addresses[:30])}")
+        payload = await self.get_json(f"/latest/dex/tokens/{','.join(addrs_list[:30])}")
         return [parse_pair(p) for p in payload.get("pairs") or []]
 
     async def pair(self, chain: str, pair_address: str) -> DexPair | None:
         payload = await self.get_json(f"/latest/dex/pairs/{chain}/{pair_address}")
         pairs = payload.get("pairs") or ([payload["pair"]] if payload.get("pair") else [])
         return parse_pair(pairs[0]) if pairs else None
+
+    pair_by_address = pair
 
     async def search(self, query: str) -> list[DexPair]:
         payload = await self.get_json("/latest/dex/search", params={"q": query})

@@ -51,13 +51,13 @@ class FCMClient:
 
     def _load(self) -> dict[str, Any]:
         if self._service_account is not None:
-            return self._service_account
+            return self._service_account or {}
         raw = (
             self.settings.fcm_service_account_json.get_secret_value() if self.settings.fcm_service_account_json else ""
         )
         if not raw:
             self._service_account = {}
-            return self._service_account
+            return self._service_account or {}
         text = raw.strip()
         if not text.startswith("{") and Path(text).exists():
             text = Path(text).read_text(encoding="utf-8")
@@ -66,7 +66,7 @@ class FCMClient:
         except ValueError:
             logger.error("fcm_service_account_invalid")
             self._service_account = {}
-        return self._service_account
+        return self._service_account or {}
 
     async def _get_access_token(self, client: httpx.AsyncClient) -> str:
         if self._access_token and time.time() < self._token_expires_at - 60:

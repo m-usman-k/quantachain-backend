@@ -11,7 +11,7 @@ import asyncio
 import random
 import time
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Self
 
 import httpx
 import structlog
@@ -55,7 +55,7 @@ class ProviderClient:
     async def aclose(self) -> None:
         await self._client.aclose()
 
-    async def __aenter__(self) -> ProviderClient:
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(self, *exc: object) -> None:

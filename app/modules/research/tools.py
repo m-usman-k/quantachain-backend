@@ -269,7 +269,9 @@ async def get_prediction(db: AsyncDatabase[dict[str, Any]], settings: Settings, 
     )
     latest: dict[str, Any] = {}
     for row in rows:
-        latest.setdefault(row.get("horizon"), row)
+        hz = row.get("horizon")
+        if hz:
+            latest.setdefault(str(hz), row)
     if not latest:
         return {"symbol": symbol, "available": False, "note": "No forecast yet for this asset."}
     return _serialise(

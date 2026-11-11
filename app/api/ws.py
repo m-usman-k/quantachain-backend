@@ -24,7 +24,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.config import Settings
 from app.core.events import Event, Subscription, Topics, event_bus
-from app.core.metrics import metrics
+from app.core.metrics import metrics as app_metrics
 from app.core.security import TokenError, decode_token
 from app.db.ingestion_logs import serialise_log, tail_ingestion_logs
 from app.modules.auth.models import Role, User
@@ -121,7 +121,8 @@ async def _pump(
     on_client_message: Any = None,
 ) -> None:
     """Forward bus events to the socket while handling client control messages."""
-    metrics.websocket_connections += 1
+    global app_metrics
+    app_metrics.websocket_connections += 1
     receiver = asyncio.create_task(_receive_loop(websocket, on_client_message))
     try:
         while True:
@@ -151,7 +152,7 @@ async def _pump(
     except (WebSocketDisconnect, RuntimeError):
         pass
     finally:
-        metrics.websocket_connections -= 1
+        app_metrics.websocket_connections -= 1
         receiver.cancel()
         with contextlib.suppress(asyncio.CancelledError, Exception):
             await receiver

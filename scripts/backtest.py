@@ -87,6 +87,11 @@ def run_strategy_simulation(
     equity_curve: list[float] = []
 
     # Indicator generation
+    fast: np.ndarray = np.array([])
+    slow: np.ndarray = np.array([])
+    rsi_vals: np.ndarray = np.array([])
+    bb_pct: np.ndarray = np.array([])
+
     if strategy == "sma_crossover":
         fast = rolling_mean(closes, 10)
         slow = rolling_mean(closes, 30)

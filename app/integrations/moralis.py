@@ -20,7 +20,7 @@ class MoralisClient(ProviderClient):
             headers["X-API-Key"] = settings.moralis_api_key.get_secret_value()
         super().__init__("moralis", MORALIS_BASE, headers=headers, timeout=20.0)
         self.configured = settings.moralis_api_key is not None
-        self.chain = settings.onchain_chain if hasattr(settings, "onchain_chain") else "eth"
+        self.chain = getattr(settings, "onchain_chain", "eth")
         self._stream_secret = (
             settings.moralis_stream_secret.get_secret_value() if settings.moralis_stream_secret else None
         )

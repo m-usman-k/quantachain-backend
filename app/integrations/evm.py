@@ -221,6 +221,9 @@ class EvmRpcClient:
         tag = hex(number) if isinstance(number, int) else number
         return await self.call("eth_getBlockByNumber", [tag, full_transactions])  # type: ignore[no-any-return]
 
+    async def get_block_by_number(self, number: int | str, *, full_txs: bool = True) -> dict[str, Any] | None:
+        return await self.get_block(number, full_transactions=full_txs)
+
     async def get_logs(
         self,
         *,

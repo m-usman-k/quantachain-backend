@@ -420,7 +420,8 @@ class SentimentService:
             text = f"{art.title}. {art.summary or art.content or ''}"
             sym_hint = art.symbols[0] if art.symbols else None
             analysis = await self.analyze_text(text, symbol_hint=sym_hint)
-            await self.news_repo.update(art.id, {"analysis": analysis.model_dump()})
+            if art.id:
+                await self.news_repo.update(art.id, {"analysis": analysis.model_dump()})
             processed += 1
 
             # If geopolitical event, store in GeoEvents

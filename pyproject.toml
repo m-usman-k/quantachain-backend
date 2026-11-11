@@ -28,3 +28,7 @@ filterwarnings = [
     "ignore::DeprecationWarning:starlette.*",
     "ignore:Using `httpx` with `starlette.testclient`",
 ]
+
+[tool.pyrefly]
+search-path = [".", ".tests"]
+

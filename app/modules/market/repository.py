@@ -249,6 +249,8 @@ class AssetStatsRepository(Repository[AssetStats]):
     async def get_by_symbol(self, symbol: str) -> AssetStats | None:
         return await self.find_one({"symbol": symbol.upper()})
 
+    get_stats = get_by_symbol
+
     async def upsert_stats(self, symbol: str, **fields: Any) -> AssetStats:
         fields = {k: v for k, v in fields.items() if v is not None}
         return await self.upsert({"symbol": symbol.upper()}, fields)

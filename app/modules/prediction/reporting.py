@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import datetime
 from io import BytesIO
-from typing import Any
+from typing import Any, cast
 
 from reportlab.graphics.charts.lineplots import LinePlot
 from reportlab.graphics.shapes import Drawing, String
@@ -109,7 +109,7 @@ class PdfReportBuilder:
         width = A4[0] - 4 * cm
         drawing = Drawing(width, height + 1.2 * cm)
         plot = LinePlot()
-        plot.x, plot.y, plot.width, plot.height = 1.2 * cm, 0.9 * cm, width - 1.6 * cm, height - 0.4 * cm
+        plot.x, plot.y, plot.width, plot.height = int(1.2 * cm), int(0.9 * cm), int(width - 1.6 * cm), int(height - 0.4 * cm)
         plot.data = [
             [(float(i), float(v)) for i, v in enumerate(values) if v is not None] for values in series.values()
         ] or [[(0.0, 0.0)]]
@@ -141,10 +141,9 @@ class PdfReportBuilder:
         return self
 
     def bullet_list(self, items: Sequence[str]) -> PdfReportBuilder:
+        flowables = [ListItem(Paragraph(i, self._styles["body"])) for i in items]
         self._story.append(
-            ListFlowable(
-                [ListItem(Paragraph(i, self._styles["body"])) for i in items], bulletType="bullet", leftIndent=12
-            )
+            ListFlowable(cast(Any, flowables), bulletType="bullet", leftIndent=12)
         )
         self._story.append(Spacer(1, 6))
         return self

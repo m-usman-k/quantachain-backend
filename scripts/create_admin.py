@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import getpass
+from typing import Any
 
 from app.core.config import get_settings
 from app.core.logging import configure_logging
@@ -39,7 +40,7 @@ async def create_admin(email: str, password: str | None, full_name: str | None) 
         )
         action = "created"
     else:
-        changes = {"role": Role.ADMIN, "is_active": True}
+        changes: dict[str, Any] = {"role": Role.ADMIN, "is_active": True}
         if password:
             changes["password_hash"] = hash_password(password)
         if full_name:

@@ -150,7 +150,7 @@ class RssClient(ProviderClient):
 
     async def fetch(self, feed_url: str) -> list[RawArticle]:
         response = await self.request("GET", feed_url)
-        parsed = await asyncio.to_thread(feedparser.parse, response.content)
+        parsed: Any = await asyncio.to_thread(feedparser.parse, response.content)
         source_name = sanitize_text(parsed.feed.get("title"), max_length=120) or urlsplit(feed_url).netloc
         articles: list[RawArticle] = []
         for entry in parsed.entries:

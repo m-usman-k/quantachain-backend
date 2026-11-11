@@ -100,11 +100,16 @@ class PredictionService:
             try:
                 weights = SignalWeights(**{k: stored[k] for k in ("technical", "whale", "sentiment")})
                 return WeightsOut(
-                    **weights.as_dict(), updated_at=stored.get("updated_at"), updated_by=stored.get("updated_by")
+                    technical=weights.technical,
+                    whale=weights.whale,
+                    sentiment=weights.sentiment,
+                    updated_at=stored.get("updated_at"),
+                    updated_by=stored.get("updated_by"),
                 )
             except (KeyError, ValueError):
                 logger.warning("invalid_stored_weights_using_defaults")
-        return WeightsOut(**SignalWeights().as_dict())
+        sw = SignalWeights()
+        return WeightsOut(technical=sw.technical, whale=sw.whale, sentiment=sw.sentiment)
 
     async def set_weights(self, technical: float, whale: float, sentiment: float, *, actor: str | None) -> WeightsOut:
         try:

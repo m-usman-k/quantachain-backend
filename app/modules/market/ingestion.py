@@ -266,7 +266,8 @@ class MarketIngestion:
         try:
             rows = await self.coingecko.coins_markets(list(ids))
             for row in rows:
-                symbol = ids.get(row.get("id"))
+                coin_id = row.get("id")
+                symbol = ids.get(str(coin_id)) if coin_id else None
                 if not symbol:
                     continue
                 await self.stats.upsert_stats(
