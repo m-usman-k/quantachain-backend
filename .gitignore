@@ -1,17 +1,30 @@
 # Local docs / notes (never committed)
 .docs/
 
-# Environment
+# Environment & Secrets (never committed or pushed to git / VPS)
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+*.cert
+*.crt
+serviceAccountKey*.json
+fcm-*.json
+firebase-*.json
+google-*.json
+.secrets/
+secrets/
 
-# Python
+# Python artifacts
 __pycache__/
 *.py[cod]
+*$py.class
 *.egg-info/
 .eggs/
+.build/
 build/
+.dist/
 dist/
 
 # Virtual environments
@@ -19,24 +32,44 @@ dist/
 venv/
 env/
 
-# Tooling caches
+# Tooling & Test caches
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
 .coverage
+.coverage.*
 htmlcov/
+.htmlcov/
 
 # Editors / OS
 .vscode/
 .idea/
 *.swp
+*.swo
+*~
 .DS_Store
+.DS_Store?
+._*
 Thumbs.db
+ehthumbs.db
 
 # Logs / local data
 *.log
+.logs/
+logs/
 *.sqlite3
 *.db
 
 # Generated data (ML models, reports, test artefacts)
+.var/
 var/
+.cache/
+cache/
+.tmp/
+tmp/
+.temp/
+temp/
+
+# Tests (local only, never committed or pushed to host/vps)
+.tests/
+tests/

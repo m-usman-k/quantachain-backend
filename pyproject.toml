@@ -7,7 +7,7 @@ requires-python = ">=3.11"
 [tool.ruff]
 line-length = 120
 target-version = "py311"
-extend-exclude = ["var", ".venv"]
+extend-exclude = [".var", "var", ".venv", ".tests", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "ASYNC", "RUF"]
@@ -15,11 +15,12 @@ select = ["E", "F", "I", "B", "UP", "ASYNC", "RUF"]
 ignore = ["E501", "B008", "RUF012", "B904", "RUF001", "RUF002", "RUF003", "RUF006", "ASYNC109", "ASYNC110", "ASYNC240"]
 
 [tool.ruff.lint.per-file-ignores]
+".tests/*" = ["E501"]
 "tests/*" = ["E501"]
 "scripts/*" = ["E501"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = [".tests", "tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"

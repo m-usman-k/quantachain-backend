@@ -11,13 +11,13 @@ trading behind one API, with an admin control plane on top.
 |---|--------|--------|------------|
 | 1 | Authentication & Access Control | ✅ | Email/password + Google/GitHub OAuth 2.0, JWT access/refresh rotation with reuse detection, TOTP MFA (Google Authenticator) with recovery codes, role-based access (admin / user), API keys, tamper-evident hash-chained audit trail |
 | 2 | Multi-Source Data Aggregation | ✅ | Binance WebSocket ticks → MongoDB time-series, 1m candles rolled up to 5m/15m/1h/4h/1d, REST back-fill, CoinGecko + Fear & Greed overview, NewsAPI/RSS/Reddit ingestion with canonical-URL and content dedup, Data Ingestion Hub status |
-| 3 | On-Chain Intelligence Engine | 🚧 | Whale transfer detection (ETH + ERC-20), exchange flow labelling, smart-money scoring, wallet cluster graphs, Alchemy → Infura → public RPC failover, Moralis streams |
-| 4 | Sentiment & Geopolitical Analysis | 🚧 | GPT-4o scoring + NER with heuristic fallback, sentiment snapshots ("Vibe Index"), sentiment/price correlation, geopolitical impact heatmap |
-| 5 | AI Prediction & Forecasting | 🚧 | LSTM (TensorFlow, optional) / statistical ensemble, volatility regimes, confidence-scored PDF reports, automated trade signals |
-| 6 | Risk Assessment & Fraud Detection | 🚧 | Solidity vulnerability scanner (SWC rules), rug-pull / pump-and-dump detection from DEX liquidity, Transparency & Liquidity Score, FCM alerts, AML blacklist |
+| 3 | On-Chain Intelligence Engine | ✅ | Whale transfer detection (ETH + ERC-20), exchange flow labelling (inflow/outflow/internal/wallet-to-wallet), smart-money scoring, D3-compatible wallet cluster graphs, netflow analysis, deep wallet/tx investigation, Alchemy → Infura → public RPC failover, Moralis webhook stream integration |
+| 4 | Sentiment & Geopolitical Analysis | ✅ | GPT-4o scoring + NER with heuristic fallback, sentiment snapshots ("Vibe Index" 0-100), historical sentiment time-series, Pearson sentiment/price correlation, geopolitical impact heatmap & event categorization |
+| 5 | AI Prediction & Forecasting | ✅ | LSTM (TensorFlow, optional) / statistical ensemble, volatility regimes, confidence-scored PDF reports, automated trade signals |
+| 6 | Risk Assessment & Fraud Detection | ✅ | Solidity vulnerability scanner (SWC rules) & EVM bytecode analysis, rug-pull / pump-and-dump detection from DEX liquidity, Transparency & Liquidity Score (0-100), FCM & WebSocket alerts, AML blacklist & DEX pair watcher |
 | 7 | Admin Dashboard & Monitoring | ✅ | CPU/RAM/event-loop metrics, health dashboard, job scheduler controls, AI model pause/override, user management, audit export, error e-mail alerts |
 | 8 | Interactive Research Portal | ✅ | Aligned multi-metric chart series, multi-turn AI research assistant with tool calling (works without an API key), monthly/quarterly macro insights |
-| 9 | Trading & Order Execution | 🚧 | Paper trading engine (market/limit/stop-loss), CCXT live adapter with encrypted exchange keys, real-time portfolio PnL |
+| 9 | Trading & Order Execution | ✅ | Paper trading engine (market/limit/stop-loss with FIFO/WAC accounting), CCXT live adapter with AES-256-GCM encrypted exchange keys, real-time portfolio PnL, positions & trade history |
 
 Cross-cutting: in-app + FCM push notifications, WebSocket streams (`/ws/market`, `/ws/onchain`,
 `/ws/alerts`, `/ws/portfolio`, `/ws/ingestion`), persisted job scheduler, structured logging,
@@ -98,7 +98,12 @@ All routes are under `/api/v1` and documented in Swagger. Authenticate with
 |------|----------------------|
 | Auth | `POST /auth/register`, `/auth/login`, `/auth/mfa/verify`, `/auth/refresh`, `/auth/logout`, `GET/PATCH /auth/me`, `/auth/mfa/*`, `/auth/oauth/{google,github}/start`, `/auth/api-keys`, `/auth/sessions`, `/auth/audit` |
 | Market | `GET /market/overview`, `/market/assets?tab=hot|gainers|losers|volume|new`, `/market/assets/{symbol}`, `/market/assets/{symbol}/candles?interval=1h`, `/market/news`, `/market/social`, admin `/market/ingestion` |
+| On-Chain | `GET /onchain/transfers`, `/onchain/transfers/{tx_hash}`, `/onchain/wallets/{address}`, `/onchain/wallets/{address}/graph`, `/onchain/clusters`, `/onchain/netflow/{symbol}`, `/onchain/investigate`, `POST /onchain/webhooks/moralis` |
+| Sentiment | `GET /sentiment/overview`, `/sentiment/history`, `/sentiment/heatmap`, `/sentiment/events`, `/sentiment/correlation`, `POST /sentiment/analyze` |
+| Prediction | `GET /predictions` (cross-timeframe matrix), `/predictions/{symbol}` (horizons, path, volatility, signals, model info), `/predictions/{symbol}/history`, `/predictions/{symbol}/volatility`, `/predictions/signals`, `/predictions/accuracy`, `POST /predictions/{symbol}/report` (PDF), admin `/predictions/weights`, `/predictions/models`, `/predictions/refresh` |
+| Fraud & Risk | `POST /fraud/scan`, `GET /fraud/scans/{id}`, `/fraud/scans/address/{chain}/{address}`, `/fraud/project-scores/{chain}/{address}`, `GET/POST /fraud/alerts`, `POST /fraud/alerts/{id}/acknowledge`, `GET/POST/DELETE /fraud/watched-pairs`, `GET/POST/DELETE /fraud/blacklist`, `GET /fraud/blacklist/check/{address}`, `/fraud/stats` |
 | Research | `GET /research/charts/{symbol}?metrics=price,sentiment,netflow`, `POST /research/chat/sessions/{id}/messages`, `/research/chat/quick`, `/research/library`, `/research/insights` |
+| Trading | `GET/POST /trading/orders`, `DELETE /trading/orders/{id}`, `GET /trading/portfolio`, `GET /trading/positions`, `GET /trading/trades`, `GET/POST/DELETE /trading/keys` |
 | Admin | `GET /admin/overview`, `/admin/health`, `/admin/system/metrics`, `/admin/jobs`, `/admin/models`, `/admin/users`, `/admin/audit-logs(/export)`, `/admin/logs/export`, `POST /admin/alerts/test` |
 | Notifications | `GET /notifications`, `POST /notifications/devices` (FCM token) |
 
@@ -126,7 +131,7 @@ docker compose --profile tools up -d   # adds mongo-express on :8081
 
 The image (`Dockerfile`) runs as a non-root user with a health check; the worker uses the same
 image with `python -m app.worker`. Generated files (ML models, PDF reports) live in `DATA_DIR`
-(`/app/var` in the container).
+(`/app/.var` in the container).
 
 ## Project layout
 

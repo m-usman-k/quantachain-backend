@@ -1,3 +1,13 @@
 * text=auto eol=lf
 *.bat text eol=crlf
 *.ps1 text eol=crlf
+
+# Exclude from deployment archives (git archive / release tarballs)
+.tests/ export-ignore
+tests/ export-ignore
+.github/ export-ignore
+.gitattributes export-ignore
+.gitignore export-ignore
+.dockerignore export-ignore
+.docs/ export-ignore
+.var/ export-ignore

@@ -28,7 +28,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - app-data:/app/var
+      - app-data:/app/.var
     depends_on:
       mongo:
         condition: service_healthy
@@ -45,7 +45,7 @@ services:
       MONGODB_DB: quantachain
       WORKERS_ENABLED: "true"
     volumes:
-      - app-data:/app/var
+      - app-data:/app/.var
     depends_on:
       mongo:
         condition: service_healthy

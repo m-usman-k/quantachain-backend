@@ -122,7 +122,7 @@ class Settings(BaseSettings):
     sentiment_snapshot_seconds: int = 600
 
     # -------------------------------------------------------- prediction (M5)
-    data_dir: str = "var"  # models, reports and other generated files live here
+    data_dir: str = ".var"  # models, reports and other generated files live here
     prediction_refresh_seconds: int = 900
     prediction_horizons: CsvList = ["1h", "4h", "24h"]
     lstm_enabled: bool = True  # used when TensorFlow is installed and a model is trained
