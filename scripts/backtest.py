@@ -80,7 +80,7 @@ def run_strategy_simulation(
     bh_exit = closes[-1] * (1.0 - SLIPPAGE_BPS / 10000.0) * (1.0 - DEFAULT_FEE_RATE)
     benchmark_return = (bh_exit / bh_entry - 1.0) * 100.0
 
-    cash = float(initial_capital)
+    cash = initial_capital
     position = 0.0
     entry_price = 0.0
     trades: list[TradeRecord] = []
@@ -244,7 +244,7 @@ async def load_candles(symbol: str, days: int = 30) -> list[dict[str, Any]]:
                     "close": price,
                     "high": round(price * 1.005, 2),
                     "low": round(price * 0.995, 2),
-                    "volume": round(float(np.random.uniform(10, 50)), 2),
+                    "volume": round(np.random.uniform(10, 50), 2),
                 }
             )
         return synthetic

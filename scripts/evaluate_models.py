@@ -104,10 +104,11 @@ def evaluate_volatility_forecasters(returns: np.ndarray, horizon: int = 24) -> l
         np.random.seed(42)
         n_sim = 400
         vol = 0.02
-        sim_rets = []
+        sim_rets: list[float] = []
         for _ in range(n_sim):
-            vol = math.sqrt(0.00002 + 0.1 * (sim_rets[-1] ** 2 if sim_rets else 0.0004) + 0.85 * (vol**2))
-            sim_rets.append(float(np.random.normal(0, vol)))
+            last_sq = (sim_rets[-1] ** 2) if sim_rets else 0.0004
+            vol = math.sqrt(0.00002 + 0.1 * last_sq + 0.85 * (vol**2))
+            sim_rets.append(np.random.normal(0, vol))
         returns = np.array(sim_rets)
         n = len(returns)
 
